@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>일차함수 지렁이 살아남기</title>
+    <style>
+        * { box-sizing: border-box; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+        body {
+            background: radial-gradient(ellipse at center, #0a1428 0%, #02060f 70%, #000000 100%);
+            color: #fff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Inter', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            overflow: hidden; position: fixed;
+        }
+        #game-container {
+            position: relative; width: 100vmin; max-width: 800px; aspect-ratio: 4 / 3;
+            border-radius: 12px; overflow: hidden;
+            background: linear-gradient(180deg, #061226 0%, #020812 100%);
+            box-shadow: 0 0 60px rgba(0, 112, 209, 0.35), 0 0 0 1px rgba(79, 195, 255, 0.15) inset;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* === Start Screen (PS5 Home style, no controller symbols) === */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background:
+                radial-gradient(circle at 30% 20%, rgba(79, 195, 255, 0.18) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(0, 112, 209, 0.22) 0%, transparent 55%),
+                linear-gradient(135deg, #06152e 0%, #020812 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10; text-align: center; padding: 20px;
+        }
+        #start-screen h1 {
+            font-size: 38px; margin: 0; letter-spacing: 1px; font-weight: 700;
+            background: linear-gradient(180deg, #ffffff 0%, #4fc3ff 100%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            text-shadow: 0 0 40px rgba(79, 195, 255, 0.5);
+        }
+        #start-screen h2 {
+            font-size: 16px; color: #8fb9e0; margin: 12px 0 50px 0;
+            font-weight: 400; letter-spacing: 2px;
+        }
+        #start-btn {
+            padding: 16px 56px; font-size: 18px; font-weight: 600; letter-spacing: 1px;
+            background: linear-gradient(180deg, #4fc3ff 0%, #0070d1 100%);
+            color: #fff; border: none; border-radius: 999px; cursor: pointer;
+            box-shadow: 0 8px 30px rgba(0, 112, 209, 0.6), 0 0 0 1px rgba(255,255,255,0.12) inset;
+            margin-bottom: 18px; transition: all 0.2s; min-width: 220px;
+        }
+        #start-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0, 112, 209, 0.8), 0 0 0 1px rgba(255,255,255,0.2) inset; }
+        #start-btn:active { transform: scale(0.97); }
+        #help-btn {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(79, 195, 255, 0.4);
+            color: #c9e4ff; padding: 10px 28px; border-radius: 999px;
+            cursor: pointer; font-size: 13px; letter-spacing: 0.5px;
+            backdrop-filter: blur(10px); transition: all 0.2s;
+        }
+        #help-btn:hover { background: rgba(79, 195, 255, 0.15); border-color: #4fc3ff; }
+
+        /* === Help Popup (Glassmorphism) === */
+        #help-popup {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 92%; max-width: 520px;
+            background: rgba(8, 22, 45, 0.85); backdrop-filter: blur(24px);
+            border: 1px solid rgba(79, 195, 255, 0.25); border-radius: 18px;
+            padding: 28px; z-index: 30; display: none;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04) inset;
+        }
+        #help-popup h3 {
+            color: #ffffff; margin: 0 0 16px 0; font-size: 20px; font-weight: 600;
+            padding-bottom: 14px; border-bottom: 1px solid rgba(79, 195, 255, 0.15);
+            letter-spacing: 0.5px;
+        }
+        #help-content {
+            font-size: 13px; line-height: 1.7; text-align: left;
+            height: 280px; overflow-y: auto; padding-right: 10px; color: #b8d4f0;
+        }
+        #help-content b { color: #4fc3ff; font-weight: 600; }
+        #help-content p { margin: 6px 0 12px 0; }
+        #help-content ul { padding-left: 18px; }
+        #close-help {
+            margin-top: 18px; width: 100%; padding: 12px;
+            background: linear-gradient(180deg, #4fc3ff 0%, #0070d1 100%);
+            color: white; border: none; border-radius: 999px; cursor: pointer;
+            font-size: 14px; font-weight: 600; letter-spacing: 0.5px;
+            box-shadow: 0 4px 20px rgba(0, 112, 209, 0.4);
+        }
+
+        /* === Wave Notice === */
+        #wave-notice {
+            position: absolute; top: 28%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 36px; font-weight: 700; color: #ffffff;
+            text-shadow: 0 0 20px rgba(79, 195, 255, 0.9), 0 0 40px rgba(0, 112, 209, 0.6);
+            display: none; z-index: 5; pointer-events: none;
+            text-align: center; white-space: pre-line; letter-spacing: 6px;
+            animation: psWaveIn 0.5s ease-out;
+        }
+        @keyframes psWaveIn {
+            from { opacity: 0; letter-spacing: 20px; }
+            to { opacity: 1; letter-spacing: 6px; }
+        }
+
+        /* === Quiz Overlay (PS5 Card) === */
+        #quiz-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 8, 18, 0.92); backdrop-filter: blur(20px);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20; padding: 15px;
+        }
+        .quiz-box {
+            background: linear-gradient(180deg, rgba(15, 35, 65, 0.95) 0%, rgba(8, 22, 45, 0.95) 100%);
+            border: 1px solid rgba(79, 195, 255, 0.35);
+            padding: 24px; border-radius: 18px;
+            width: 95%; max-width: 480px; text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset;
+        }
+        .quiz-title {
+            font-size: 18px; color: #4fc3ff; margin-bottom: 10px;
+            font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+        }
+        .quiz-question {
+            font-size: 15px; margin-bottom: 16px; line-height: 1.6;
+            color: #e8f3ff; font-weight: 500;
+        }
+        .quiz-options { display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .option-btn {
+            background: rgba(79, 195, 255, 0.08);
+            color: #e8f3ff; border: 1px solid rgba(79, 195, 255, 0.3);
+            padding: 13px 16px; font-size: 14px; border-radius: 12px;
+            cursor: pointer; transition: all 0.2s; text-align: left;
+            font-weight: 500;
+        }
+        .option-btn:hover {
+            background: rgba(79, 195, 255, 0.2);
+            border-color: #4fc3ff;
+            transform: translateX(4px);
+            box-shadow: 0 0 20px rgba(79, 195, 255, 0.3);
+        }
+        #quiz-canvas {
+            background: linear-gradient(180deg, #020812 0%, #061226 100%);
+            border: 1px solid rgba(79, 195, 255, 0.3);
+            border-radius: 10px;
+            margin: 8px auto; display: none; width: 240px; height: 240px;
+        }
+        #graph-controls { display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+        .control-btn {
+            padding: 12px; font-size: 14px; font-weight: 600; border-radius: 999px;
+            cursor: pointer; border: none; letter-spacing: 0.5px;
+        }
+        .btn-reset {
+            background: rgba(255, 61, 0, 0.15); color: #ff8a65;
+            border: 1px solid rgba(255, 61, 0, 0.4);
+        }
+        .btn-submit {
+            background: linear-gradient(180deg, #4fc3ff 0%, #0070d1 100%);
+            color: #fff; box-shadow: 0 4px 16px rgba(0, 112, 209, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="start-screen">
+            <h1>일차함수 지렁이 살아남기</h1>
+            <h2>동래중학교 2학년 파이팅</h2>
+            <button id="start-btn" onclick="startGame()">시스템 가동</button>
+            <button id="help-btn" onclick="toggleHelp(true)">게임 방법</button>
+        </div>
+
+        <div id="help-popup">
+            <h3>💾 데이터 스네이크 프로토콜</h3>
+            <div id="help-content">
+                <b>1. 기본 임무</b>
+                <p>필드의 적들을 물리쳐 데이터 조각을 모으세요. 레벨업 시 나타나는 <b>일차함수 미션</b>을 해결해야 시스템이 진화합니다.</p>
+                <b>2. 장비 정보</b>
+                <ul>
+                    <li><b>메인 코어 (머리):</b> 자동 조준 권총 탑재.</li>
+                    <li><b>1번 마디:</b> 관통형 레이저포.</li>
+                    <li><b>2번 마디:</b> 자동 수리 나노봇.</li>
+                    <li><b>3번 마디:</b> 데이터 흡혈 코어.</li>
+                </ul>
+            </div>
+            <button id="close-help" onclick="toggleHelp(false)">확인 완료</button>
+        </div>
+
+        <div id="quiz-overlay">
+            <div class="quiz-box">
+                <div class="quiz-title" id="quiz-level-title">미션 수신됨</div>
+                <div class="quiz-question" id="quiz-text"></div>
+                <canvas id="quiz-canvas" width="240" height="240"></canvas>
+                <div id="graph-controls">
+                    <button class="control-btn btn-reset" onclick="resetGraphDrawing()">🔄 다시 그리기</button>
+                    <button class="control-btn btn-submit" onclick="submitGraphDrawing()">🚀 제출하기</button>
+                </div>
+                <div class="quiz-options" id="quiz-answers-container"></div>
+            </div>
+        </div>
+
+        <div id="wave-notice">WAVE 1</div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (w < 2*r) r = w/2; if (h < 2*r) r = h/2;
+                this.beginPath();
+                this.moveTo(x+r, y); this.arcTo(x+w, y, x+w, y+h, r);
+                this.arcTo(x+w, y+h, x, y+h, r); this.arcTo(x, y+h, x, y, r);
+                this.arcTo(x, y, x+w, y, r); this.closePath();
+                return this;
+            };
+        }
+
+        const canvas = document.getElementById("gameCanvas"); const ctx = canvas.getContext("2d");
+        const qCanvas = document.getElementById("quiz-canvas"); const qCtx = qCanvas.getContext("2d");
+        const startScreen = document.getElementById("start-screen"); const waveNotice = document.getElementById("wave-notice");
+        const quizOverlay = document.getElementById("quiz-overlay"); const quizText = document.getElementById("quiz-text");
+        const quizAnswersContainer = document.getElementById("quiz-answers-container"); const quizLevelTitle = document.getElementById("quiz-level-title");
+        const graphControls = document.getElementById("graph-controls");
+        const helpPopup = document.getElementById("help-popup");
+
+        let gameState = "READY"; let gameTime = 0; let currentWave = 1;
+        let playerLevel = 1; let playerExp = 0; let expNeeded = 5; 
+        const WORLD_WIDTH = 3000; const WORLD_HEIGHT = 3000; let camera = { x: 0, y: 0 };
+        const SPEED_MOD = 1.68;
+
+        let player = { x: 1500, y: 1500, speed: 1.8 * SPEED_MOD, size: 14, hp: 500, maxHp: 500, regenLevel: 0, vampLevel: 0, invincible: 0 };
+        let weapons = { pistol: { cooldown: Math.floor(45 / SPEED_MOD), damage: 8, count: 1, angle: 0 }, laser: { level: 0, cooldown: Math.floor(90 / SPEED_MOD), damage: 8, activeLines: [], count: 1 } };
+
+        let bosses = []; let bossWarning = false; let bossShield = false; let bossGroggy = 0;
+        let bullets = []; let enemyBullets = []; let monsters = []; let expGems = []; let damageTexts = []; let items = [];
+        let monsterSpawnTimer = 0; let pistolTimer = 0; let laserTimer = 0; let regenTimer = 0;
+
+        let keys = { w: false, a: false, s: false, d: false };
+        let joystick = { isActive: false, startX: 0, startY: 0, currentX: 0, currentY: 0, vx: 0, vy: 0 };
+        let positionHistory = []; const segmentDelay = 7; 
+        let selectedGraphPoints = [];
+        let currentGeneratedQuiz = null;
+
+        function getPos(e, c) { const r = c.getBoundingClientRect(); let cx = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0); let cy = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0); return { x: (cx - r.left) * (c.width / r.width), y: (cy - r.top) * (c.height / r.height) }; }
+        function handleInputStart(e) { if(gameState !== "PLAYING") return; const p = getPos(e, canvas); if (p.x < canvas.width / 2 && p.y > canvas.height / 2) { joystick.isActive = true; joystick.startX = p.x; joystick.startY = p.y; joystick.currentX = p.x; joystick.currentY = p.y; } }
+        function handleInputMove(e) { if (!joystick.isActive) return; const p = getPos(e, canvas); joystick.currentX = p.x; joystick.currentY = p.y; let dx = p.x - joystick.startX; let dy = p.y - joystick.startY; let d = Math.sqrt(dx*dx + dy*dy); if (d > 0) { joystick.vx = dx / d; joystick.vy = dy / d; if (d > 40) { joystick.currentX = joystick.startX + joystick.vx * 40; joystick.currentY = joystick.startY + joystick.vy * 40; } } }
+        function handleInputEnd() { joystick.isActive = false; joystick.vx = 0; joystick.vy = 0; }
+
+        canvas.addEventListener("touchstart", handleInputStart, {passive: false}); canvas.addEventListener("mousedown", handleInputStart);
+        canvas.addEventListener("touchmove", handleInputMove, {passive: false}); canvas.addEventListener("mousemove", handleInputMove);
+        canvas.addEventListener("touchend", handleInputEnd); canvas.addEventListener("mouseup", handleInputEnd);
+        window.addEventListener("keydown", (e) => { if(['w','a','s','d'].includes(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; });
+        window.addEventListener("keyup", (e) => { if(['w','a','s','d'].includes(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; });
+        qCanvas.addEventListener("mousedown", handleGraphClick);
+
+        function toggleHelp(show) { helpPopup.style.display = show ? "block" : "none"; }
+        function startGame() { if(helpPopup.style.display === "block") return; startScreen.style.display = "none"; gameState = "PLAYING"; gameTime = 0; currentWave = 1; playerLevel = 1; playerExp = 0; expNeeded = 5; player.hp = player.maxHp; player.regenLevel = 0; player.vampLevel = 0; player.invincible = 0; weapons.pistol = { cooldown: Math.floor(45 / SPEED_MOD), damage: 8, count: 1, angle: 0 }; weapons.laser = { level: 0, cooldown: Math.floor(180 / SPEED_MOD), damage: 24, activeLines: [], count: 1 }; bosses = []; bossWarning = false; bossShield = false; bossGroggy = 0; monsters = []; bullets = []; enemyBullets = []; expGems = []; damageTexts = []; items = []; triggerWaveNotice(1); let clock = setInterval(() => { if(gameState === "PLAYING") { gameTime++; if (gameTime === 60) triggerWaveNotice(2); if (gameTime === 120) triggerWaveNotice(3); if (gameTime === 240) triggerBossWarning(); } if(gameState === "GAMEOVER" || gameState === "CLEAR") clearInterval(clock); }, 1000); }
+        function triggerWaveNotice(waveText) { currentWave = waveText; waveNotice.style.color = "#FFEA00"; waveNotice.innerText = typeof waveText === 'number' ? "WAVE " + waveText : waveText; waveNotice.style.display = "block"; setTimeout(() => waveNotice.style.display = "none", 2000); }
+        function triggerBossWarning() { bossWarning = true; monsters = []; waveNotice.style.color = "#FF1744"; waveNotice.innerText = "⚠ WARNING\nSYSTEM CRITICAL ERROR"; waveNotice.style.display = "block"; setTimeout(() => { waveNotice.style.display = "none"; bossWarning = false; triggerBossWave(); }, 3000); }
+        function triggerBossWave() { currentWave = "BOSS"; bosses.push({ x: 1500, y: 1500, size: 45, hp: 2000, maxHp: 2000, speed: 0.5 * SPEED_MOD, shootCooldown: 0, shieldTriggers: [0.7, 0.4], canSplit: true }); }
+        function createDamageText(x, y, amt, color = null) { damageTexts.push({ x: x + (Math.random()-0.5)*15, y: y, text: (amt > 0 ? "-" : "+") + Math.abs(Math.floor(amt)), life: 30, color: color || (amt > 0 ? "#FF3D00" : "#00E676") }); }
+        function spawnMonster() { if(currentWave === "BOSS" || bossWarning) return; let a = Math.random() * Math.PI * 2; let mx = player.x + Math.cos(a) * 520; let my = player.y + Math.sin(a) * 520; if(mx < 0 || mx > WORLD_WIDTH || my < 0 || my > WORLD_HEIGHT) return; let dice = Math.random(); let type = "NORMAL"; if (currentWave === 2 && dice > 0.65) type = "RUSH"; else if (currentWave >= 3) { if (dice > 0.8) type = "SHOOTER"; else if (dice > 0.5) type = "RUSH"; } let baseHp = 20 + (currentWave - 1) * 15; let baseSpeed = 0.6 * SPEED_MOD; let color = "#E040FB"; if (type === "RUSH") { baseHp *= 0.7; baseSpeed = (1.6 + (currentWave * 0.1)) * SPEED_MOD; color = "#FF9100"; } else if (type === "SHOOTER") { baseHp *= 1.3; baseSpeed = 0.4 * SPEED_MOD; color = "#FF1744"; } monsters.push({ x: mx, y: my, type: type, speed: baseSpeed, size: 12 + currentWave, hp: baseHp, maxHp: baseHp, color: color, shootCooldown: Math.floor(Math.random() * 60) }); }
+        function handleEnemyDeath(m) { let gVal = m.type === "SHOOTER" ? 3 : 1; expGems.push({ x: m.x, y: m.y, size: 6, value: gVal, color: m.type === "SHOOTER" ? "#FF007F" : "#00E5FF", forceMagnet: false }); let rand = Math.random(); if (rand < 0.03) items.push({ type: 'magnet', x: m.x, y: m.y, size: 8 }); else if (rand < 0.07) items.push({ type: 'heart', x: m.x, y: m.y, size: 8 }); if (player.vampLevel > 0 && Math.random() < (0.15 * player.vampLevel)) { player.hp = Math.min(player.maxHp, player.hp + 5); createDamageText(player.x, player.y, -5); } }
+        function formatFormula(a, b) { let aPart = a === 1 ? "x" : (a === -1 ? "-x" : a + "x"); let bPart = b > 0 ? " + " + b : (b < 0 ? " - " + Math.abs(b) : ""); return `y = ${aPart}${bPart}`; }
+        function generateUniqueOptions(ansStr) { let optsSet = new Set([ansStr]); let offsets = [1, -1, 2, -2]; let i = 0; while(optsSet.size < 4 && i < offsets.length) { let numAns = parseFloat(ansStr); if(!isNaN(numAns)) optsSet.add((numAns + offsets[i]).toString()); i++; } return shuffleArray(Array.from(optsSet)); }
+        function generateRandomQuiz() { let a = 0; while(a === 0) a = Math.floor(Math.random() * 7) - 3; let b = Math.floor(Math.random() * 7) - 3; let x = Math.floor(Math.random() * 4) - 1; let type = playerLevel <= 2 ? 1 : (playerLevel <= 4 ? (Math.random() > 0.5 ? 2 : 3) : (Math.random() > 0.6 ? 5 : 4)); if (type === 1) { let ans = (a * x + b).toString(); return { type: 1, question: `함수 f(x) = ${formatFormula(a, b).split('=')[1].trim()} 일 때,\nf(${x})의 값은?`, options: generateUniqueOptions(ans), answer: ans }; } else if (type === 2) { a = Math.random() > 0.5 ? 1 : -1; b = Math.floor(Math.random() * 5) - 2; return { type: 2, question: `[해킹] 두 점을 찍어 그래프를 복구하세요.\n ${formatFormula(a, b)}`, a: a, b: b }; } else if (type === 3) { a = Math.random() > 0.5 ? 2 : -2; b = a * (Math.floor(Math.random() * 2) + 1); let ans = (-b / a).toString(); return { type: 3, question: `일차함수 ${formatFormula(a, b)} 의 x절편은?`, options: generateUniqueOptions(ans), answer: ans }; } else if (type === 4) { let correct = formatFormula(a, b); return { type: 4, question: `기울기가 ${a} 이고 점 (1, ${a + b})를 지나는 식은?`, options: shuffleArray([correct, formatFormula(-a, b), formatFormula(a, -b), formatFormula(-a, -b)]).slice(0,4), answer: correct }; } else { let correct = formatFormula(a, b); return { type: 5, question: `다음 그래프의 올바른 식을 고르세요.`, a: a, b: b, options: shuffleArray([correct, formatFormula(-a, b), formatFormula(a, -b), formatFormula(-a, -b)]).slice(0,4), answer: correct }; } }
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
+        function triggerQuiz(isBoss = false) { gameState = "QUIZ"; quizOverlay.style.display = "flex"; selectedGraphPoints = []; currentGeneratedQuiz = generateRandomQuiz(); quizLevelTitle.innerText = isBoss ? "🚨 BOSS 실드 해킹" : `LEVEL ${playerLevel} 검증`; quizText.innerText = currentGeneratedQuiz.question; quizAnswersContainer.innerHTML = ""; if (currentGeneratedQuiz.type === 2 || currentGeneratedQuiz.type === 5) { qCanvas.style.display = "block"; if(currentGeneratedQuiz.type === 2) graphControls.style.display = "grid"; else graphControls.style.display = "none"; drawQuizGraph(); if(currentGeneratedQuiz.type === 5) renderOptions(); } else { qCanvas.style.display = "none"; graphControls.style.display = "none"; renderOptions(); } }
+        function renderOptions() { currentGeneratedQuiz.options.forEach(opt => { let btn = document.createElement("button"); btn.className = "option-btn"; btn.innerText = opt; btn.onclick = () => checkAnswer(opt, currentGeneratedQuiz.answer); quizAnswersContainer.appendChild(btn); }); }
+        function drawQuizGraph() { qCtx.fillStyle = "#020c1b"; qCtx.fillRect(0, 0, 240, 240); qCtx.strokeStyle = "#404040"; qCtx.lineWidth = 1; for(let i=0; i<=240; i+=24) { qCtx.beginPath(); qCtx.moveTo(i, 0); qCtx.lineTo(i, 240); qCtx.stroke(); qCtx.beginPath(); qCtx.moveTo(0, i); qCtx.lineTo(240, i); qCtx.stroke(); } qCtx.strokeStyle = "#8ba1c5"; qCtx.lineWidth = 2; qCtx.beginPath(); qCtx.moveTo(120, 0); qCtx.lineTo(120, 240); qCtx.stroke(); qCtx.beginPath(); qCtx.moveTo(0, 120); qCtx.lineTo(240, 120); qCtx.stroke(); qCtx.fillStyle = "#FFEA00"; selectedGraphPoints.forEach(pt => { qCtx.beginPath(); qCtx.arc(120 + pt.x * 24, 120 - pt.y * 24, 4, 0, Math.PI*2); qCtx.fill(); }); if(currentGeneratedQuiz.type === 5) { qCtx.strokeStyle = "#FFEA00"; qCtx.lineWidth = 2; qCtx.beginPath(); for(let x = -5; x <= 5; x++) { let py = 120 - (currentGeneratedQuiz.a * x + currentGeneratedQuiz.b) * 24; x === -5 ? qCtx.moveTo(120 + x * 24, py) : qCtx.lineTo(120 + x * 24, py); } qCtx.stroke(); } else if(currentGeneratedQuiz.type === 2 && selectedGraphPoints.length >= 2) { qCtx.strokeStyle = "#00E5FF"; qCtx.lineWidth = 2; qCtx.beginPath(); let p1 = selectedGraphPoints[0]; let p2 = selectedGraphPoints[1]; let m = (p2.y - p1.y) / (p2.x - p1.x); let c = p1.y - m * p1.x; qCtx.moveTo(0, 120 - (m * -5 + c) * 24); qCtx.lineTo(240, 120 - (m * 5 + c) * 24); qCtx.stroke(); } }
+        function handleGraphClick(e) { if(currentGeneratedQuiz.type !== 2) return; const p = getPos(e, qCanvas); let mx = Math.round((p.x - 120) / 24); let my = Math.round((120 - p.y) / 24); if(Math.abs(mx) <= 5 && Math.abs(my) <= 5 && selectedGraphPoints.length < 2) { if(!selectedGraphPoints.some(pt => pt.x === mx && pt.y === my)) selectedGraphPoints.push({ x: mx, y: my }); drawQuizGraph(); } }
+        function resetGraphDrawing() { selectedGraphPoints = []; drawQuizGraph(); }
+        function submitGraphDrawing() { if (selectedGraphPoints.length < 2) return; let p1 = selectedGraphPoints[0]; let p2 = selectedGraphPoints[1]; let m = (p2.y - p1.y) / (p2.x - p1.x); let c = p1.y - m * p1.x; if(Math.abs(m - currentGeneratedQuiz.a) < 0.1 && Math.abs(c - currentGeneratedQuiz.b) < 0.1) resolveQuiz(); else penalty(); }
+        function checkAnswer(sel, cor) { if (sel === cor) resolveQuiz(); else penalty(); }
+        function resolveQuiz() { if(bossShield) { bossShield = false; bossGroggy = 180; bosses.forEach(b => { if(b.shieldTriggers && b.shieldTriggers.length > 0) b.shieldTriggers.shift(); }); quizOverlay.style.display = "none"; gameState = "PLAYING"; } else showRewardOptions(); }
+        function penalty() { player.hp -= 60; createDamageText(player.x, player.y, 60); if(bossShield) { for(let b of bosses) { b.hp = Math.min(b.maxHp, b.hp + (b.maxHp * 0.1)); } bossShield = false; alert("오답! 보스가 일부 복구되었습니다. 다시 도전!"); } else alert("오답! HP가 차감되었습니다."); quizOverlay.style.display = "none"; if(player.hp <= 0) gameState = "GAMEOVER"; else gameState = "PLAYING"; }
+        function showRewardOptions() { qCanvas.style.display = "none"; graphControls.style.display = "none"; quizLevelTitle.innerText = "⚡ 시스템 업그레이드"; quizText.innerText = "하나의 프로토콜을 선택하세요."; quizAnswersContainer.innerHTML = ""; let pool = [{ id: 'p_dmg', text: `[권총] 데미지 +4` }, { id: 'p_spd', text: `[권총] 연사 가속` }, { id: 'p_cnt', text: `[권총] 탄환 추가` }, { id: 'laser', text: weapons.laser.level === 0 ? `[레이저] 탑재` : `[레이저] 강화` }, { id: 'regen', text: `[패시브] 자동 수리 나노봇` }, { id: 'vamp', text: `[패시브] 데이터 흡혈 코어` }]; shuffleArray(pool).slice(0, 3).forEach(rw => { let btn = document.createElement("button"); btn.className = "option-btn"; btn.innerText = rw.text; btn.onclick = () => chooseReward(rw.id); quizAnswersContainer.appendChild(btn); }); }
+        function chooseReward(id) { if(id === 'p_dmg') weapons.pistol.damage += 4; else if(id === 'p_spd') weapons.pistol.cooldown = Math.max(12, Math.floor(weapons.pistol.cooldown - (8/SPEED_MOD))); else if(id === 'p_cnt') weapons.pistol.count = Math.min(5, weapons.pistol.count + 1); else if(id === 'laser') { weapons.laser.level++; weapons.laser.damage += 4; if(weapons.laser.level >= 4) weapons.laser.count = 2; } else if(id === 'regen') player.regenLevel++; else if(id === 'vamp') player.vampLevel++; playerLevel++; playerExp = 0; expNeeded = Math.floor(expNeeded * 1.45); quizOverlay.style.display = "none"; gameState = "PLAYING"; }
+        function update() { if (gameState !== "PLAYING") return; if (keys.w) player.y -= player.speed; if (keys.s) player.y += player.speed; if (keys.a) player.x -= player.speed; if (keys.d) player.x += player.speed; if (joystick.isActive && !keys.w && !keys.s && !keys.a && !keys.d) { player.x += joystick.vx * player.speed; player.y += joystick.vy * player.speed; } player.x = Math.max(0, Math.min(WORLD_WIDTH, player.x)); player.y = Math.max(0, Math.min(WORLD_HEIGHT, player.y)); if(player.invincible > 0) player.invincible--; positionHistory.unshift({ x: player.x, y: player.y }); if (positionHistory.length > 100) positionHistory.pop(); camera.x = player.x - 400; camera.y = player.y - 300; for(let i = damageTexts.length - 1; i >= 0; i--) { damageTexts[i].y -= 0.5; damageTexts[i].life--; if(damageTexts[i].life <= 0) damageTexts.splice(i, 1); } if(player.regenLevel > 0) { regenTimer++; if(regenTimer >= Math.floor(300 / SPEED_MOD)) { let h = player.regenLevel * 10; if(player.hp < player.maxHp) { player.hp = Math.min(player.maxHp, player.hp + h); createDamageText(player.x, player.y, -h); } regenTimer = 0; } } let validBosses = bosses.filter(b => !bossShield && bossGroggy <= 0); let tList = validBosses.length > 0 ? validBosses : monsters; if(tList.length > 0) { let closest = null; let minD = 99999; for(let m of tList) { let d = Math.sqrt((m.x - player.x)**2 + (m.y - player.y)**2); if(d < minD) { minD = d; closest = m; } } if(closest) { weapons.pistol.angle = Math.atan2(closest.y - player.y, closest.x - player.x); if(pistolTimer > weapons.pistol.cooldown && minD < 450) { for(let c=0; c < weapons.pistol.count; c++) { let offset = c === 0 ? 0 : (c % 2 === 1 ? 1 : -1) * Math.ceil(c / 2) * 0.25; bullets.push({ x: player.x, y: player.y, vx: Math.cos(weapons.pistol.angle + offset) * 5.5 * SPEED_MOD, vy: Math.sin(weapons.pistol.angle + offset) * 5.5 * SPEED_MOD, size: 4 }); } pistolTimer = 0; } if(weapons.laser.level > 0) { weapons.pistol.angle = Math.atan2(closest.y - player.y, closest.x - player.x); } } } pistolTimer++; let allTargets = [...validBosses, ...monsters]; if(weapons.laser.level > 0) { laserTimer++; if(laserTimer > weapons.laser.cooldown) { if(allTargets.length > 0) { let sorted = allTargets.map(m => ({ m, d: Math.sqrt((m.x - player.x)**2 + (m.y - player.y)**2) })).sort((a, b) => a.d - b.d); for(let i=0; i<weapons.laser.count; i++) { let t = sorted[i % sorted.length]; let aOff = (sorted.length === 1 && i === 1) ? 0.3 : 0; let a = Math.atan2(t.m.y - player.y, t.m.x - player.x) + aOff; weapons.laser.activeLines.push({ sx: player.x, sy: player.y, ex: player.x + Math.cos(a)*600, ey: player.y + Math.sin(a)*600, life: 20, hitIds: new Set() }); } laserTimer = 0; } } } bullets = bullets.filter(b => { b.x += b.vx; b.y += b.vy; if(Math.abs(b.x - player.x) > 600) return false; let hit = false; for(let m of allTargets) { if(Math.sqrt((b.x - m.x)**2 + (b.y - m.y)**2) < m.size + b.size) { m.hp -= weapons.pistol.damage; createDamageText(m.x, m.y, weapons.pistol.damage); hit = true; break; } } return !hit; }); weapons.laser.activeLines.forEach(l => { l.life--; allTargets.forEach(m => { let A = m.x-l.sx; let B = m.y-l.sy; let C = l.ex-l.sx; let D = l.ey-l.sy; let p = Math.max(0, Math.min(1, (A*C+B*D)/(C*C+D*D))); if(Math.sqrt((m.x-(l.sx+p*C))**2+(m.y-(l.sy+p*D))**2) < m.size+6) { m.hp -= (weapons.laser.damage/20); if(m._uid === undefined) m._uid = Math.random(); if(!l.hitIds.has(m._uid)) { l.hitIds.add(m._uid); createDamageText(m.x, m.y, weapons.laser.damage); } } }); }); weapons.laser.activeLines = weapons.laser.activeLines.filter(l => l.life > 0); for(let i=bosses.length-1; i>=0; i--) { let b = bosses[i]; if(b.canSplit && b.hp / b.maxHp <= 0.3) { let oldX = b.x; let oldY = b.y; let oldMax = b.maxHp; bosses.splice(i, 1); bosses.push({ x: oldX - 40, y: oldY, size: 30, hp: oldMax * 0.5, maxHp: oldMax * 0.5, speed: 0.7 * SPEED_MOD, shootCooldown: 0, shieldTriggers: [], canSplit: false }, { x: oldX + 40, y: oldY, size: 30, hp: oldMax * 0.5, maxHp: oldMax * 0.5, speed: 0.7 * SPEED_MOD, shootCooldown: 30, shieldTriggers: [], canSplit: false }); break; } if(b.hp <= 0) { bosses.splice(i, 1); continue; } if(bossGroggy <= 0 && !bossShield) { let dx = player.x-b.x; let dy = player.y-b.y; let dist = Math.sqrt(dx*dx+dy*dy); if(dist > 0) { b.x += (dx/dist)*b.speed; b.y += (dy/dist)*b.speed; } b.shootCooldown++; if(b.shootCooldown > Math.floor(80 / SPEED_MOD)) { let pat = Math.floor(Math.random() * 3); if(pat === 0) { for(let d=0; d<10; d++) { let a = (Math.PI*2/10)*d; enemyBullets.push({ x:b.x, y:b.y, vx: Math.cos(a)*2.5 * SPEED_MOD, vy: Math.sin(a)*2.5 * SPEED_MOD, size:7 }); } } else if(pat === 1) { for(let d=0; d<6; d++) { let a = (gameTime*0.1) + (Math.PI*2/6)*d; enemyBullets.push({ x:b.x, y:b.y, vx: Math.cos(a)*3.5 * SPEED_MOD, vy: Math.sin(a)*3.5 * SPEED_MOD, size:6 }); } } else { let a = Math.atan2(dy, dx); for(let off=-0.2; off<=0.2; off+=0.2) { enemyBullets.push({ x:b.x, y:b.y, vx: Math.cos(a+off)*4 * SPEED_MOD, vy: Math.sin(a+off)*4 * SPEED_MOD, size:5 }); } } b.shootCooldown = 0; } if(dist < player.size + b.size && player.invincible <= 0) { player.hp -= 30; createDamageText(player.x, player.y, 30); player.invincible = 24; } if(b.canSplit && b.shieldTriggers.length > 0 && b.hp / b.maxHp <= b.shieldTriggers[0]) { bossShield = true; triggerQuiz(true); } } } if(bossGroggy > 0) bossGroggy--; if(currentWave === "BOSS" && bosses.length === 0 && !bossWarning) handleBossClear(); monsters = monsters.filter(m => { if(m.hp <= 0) { handleEnemyDeath(m); return false; } if(!bossShield && !bossWarning) { let dx = player.x-m.x; let dy = player.y-m.y; let d = Math.sqrt(dx*dx+dy*dy); if(m.type === "SHOOTER") { if(d > 220) { m.x += (dx/d)*m.speed; m.y += (dy/d)*m.speed; } m.shootCooldown++; if(m.shootCooldown > Math.floor(150 / SPEED_MOD)) { let a = Math.atan2(dy, dx); enemyBullets.push({ x:m.x, y:m.y, vx: Math.cos(a)*2.2 * SPEED_MOD, vy: Math.sin(a)*2.2 * SPEED_MOD, size:5 }); m.shootCooldown=0; } } else if(d > 0) { m.x += (dx/d)*m.speed; m.y += (dy/d)*m.speed; } if(d < player.size+m.size && player.invincible <= 0) { player.hp -= 15; createDamageText(player.x, player.y, 15); player.invincible = 24; } } return true; }); enemyBullets = enemyBullets.filter(eb => { eb.x += eb.vx; eb.y += eb.vy; if(Math.abs(eb.x - player.x) > 800) return false; if(player.invincible <= 0) { let hit = Math.sqrt((eb.x-player.x)**2+(eb.y-player.y)**2) < player.size+eb.size; if(!hit) { for(let s=1; s<=4; s++) { let sp = positionHistory[s*segmentDelay]; if(sp && Math.sqrt((eb.x-sp.x)**2+(eb.y-sp.y)**2) < player.size-6+eb.size) { hit=true; break; } } } if(hit) { player.hp -= (currentWave === "BOSS" ? 20 : 15 + currentWave * 5); createDamageText(player.x, player.y, (currentWave==="BOSS"?20:15+currentWave*5)); player.invincible = 24; return false; } } return true; }); if(player.hp <= 0) gameState = "GAMEOVER"; monsterSpawnTimer++; if(monsterSpawnTimer > Math.floor(75 / SPEED_MOD)) { spawnMonster(); monsterSpawnTimer = 0; } for(let i=items.length-1; i>=0; i--) { let it = items[i]; if(Math.sqrt((it.x-player.x)**2+(it.y-player.y)**2) < player.size+it.size) { if(it.type==='magnet') expGems.forEach(g=>g.forceMagnet=true); else if(it.type==='heart') { player.hp=Math.min(player.maxHp, player.hp+40); createDamageText(player.x, player.y, -40); } items.splice(i,1); } } for(let i=expGems.length-1; i>=0; i--) { let g = expGems[i]; let d = Math.sqrt((g.x-player.x)**2+(g.y-player.y)**2); if(d<90 || g.forceMagnet) { let a=Math.atan2(player.y-g.y, player.x-g.x); let sp = (g.forceMagnet ? 6.5:4) * SPEED_MOD; g.x += Math.cos(a)*sp; g.y += Math.sin(a)*sp; } if(d < player.size+6) { playerExp += g.value; expGems.splice(i,1); if(playerExp >= expNeeded) { triggerQuiz(); break; } } } if(gameState === "GAMEOVER") alert("시스템 붕괴! 다시 시도하십시오."); }
+        function drawHeart(ctx, x, y, size) { ctx.save(); ctx.translate(x, y); ctx.scale(size / 15, size / 15); ctx.beginPath(); ctx.moveTo(0, 5); ctx.bezierCurveTo(0, 0, -10, 0, -10, 5); ctx.bezierCurveTo(-10, 10, 0, 15, 0, 20); ctx.bezierCurveTo(0, 15, 10, 10, 10, 5); ctx.bezierCurveTo(10, 0, 0, 0, 0, 5); ctx.fillStyle = "#FF1744"; ctx.fill(); ctx.restore(); }
+        function handleBossClear() { gameState = "CLEAR"; ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0, 0, 800, 600); alert("시스템 복구 완료!\n화면 캡처해서 쌤한테 보여주면 상점 또는 간식이 있습니다~"); }
+        function draw() { ctx.clearRect(0, 0, 800, 600); ctx.strokeStyle = "#4d4d4d"; ctx.lineWidth = 2; let sx = Math.floor(camera.x / 40) * 40, sy = Math.floor(camera.y / 40) * 40; for (let x = sx; x < sx + 840; x += 40) { ctx.beginPath(); ctx.moveTo(x - camera.x, 0); ctx.lineTo(x - camera.x, 600); ctx.stroke(); } for (let y = sy; y < sy + 640; y += 40) { ctx.beginPath(); ctx.moveTo(0, y - camera.y); ctx.lineTo(800, y - camera.y); ctx.stroke(); } ctx.strokeStyle = "#FF1744"; ctx.lineWidth = 4; ctx.strokeRect(-camera.x, -camera.y, WORLD_WIDTH, WORLD_HEIGHT); if (gameState === "PLAYING" || gameState === "QUIZ" || gameState === "CLEAR") { expGems.forEach(g => { ctx.fillStyle = g.color; ctx.fillRect(g.x - camera.x - 3, g.y - camera.y - 3, 6, 6); }); items.forEach(it => { if(it.type === 'magnet') { ctx.fillStyle = "#FFEA00"; ctx.beginPath(); ctx.arc(it.x-camera.x, it.y-camera.y, it.size, 0, Math.PI*2); ctx.fill(); } else drawHeart(ctx, it.x-camera.x, it.y-camera.y-10, 10); }); monsters.forEach(m => { ctx.fillStyle = m.color; ctx.beginPath(); ctx.arc(m.x - camera.x, m.y - camera.y, m.size, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "#333"; ctx.fillRect(m.x-camera.x-m.size, m.y-camera.y-m.size-7, m.size*2, 3); ctx.fillStyle = "#00E676"; ctx.fillRect(m.x-camera.x-m.size, m.y-camera.y-m.size-7, m.size*2*(m.hp/m.maxHp), 3); }); bosses.forEach(b => { ctx.fillStyle = (bossShield && b.canSplit) ? "#E040FB" : (bossGroggy > 0 ? "#5c6f94" : "#FF1744"); ctx.beginPath(); ctx.arc(b.x-camera.x, b.y-camera.y, b.size, 0, Math.PI*2); ctx.fill(); if(bossShield && b.canSplit) { ctx.strokeStyle = "#FFF"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(b.x-camera.x, b.y-camera.y, b.size + 10, 0, Math.PI*2); ctx.stroke(); } ctx.fillStyle = "#333"; ctx.fillRect(b.x-camera.x-b.size, b.y-camera.y-b.size-15, b.size*2, 8); ctx.fillStyle = "#FFEA00"; ctx.fillRect(b.x-camera.x-b.size, b.y-camera.y-b.size-15, b.size*2*(b.hp/b.maxHp), 8); }); ctx.fillStyle = "#FF1744"; enemyBullets.forEach(eb => { ctx.beginPath(); ctx.arc(eb.x - camera.x, eb.y - camera.y, eb.size, 0, Math.PI*2); ctx.fill(); }); ctx.fillStyle = "#FFEA00"; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x - camera.x, b.y - camera.y, b.size, 0, Math.PI*2); ctx.fill(); }); if(weapons.laser.level > 0) weapons.laser.activeLines.forEach(l => { ctx.strokeStyle = `rgba(0, 230, 118, ${l.life/20})`; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(l.sx-camera.x, l.sy-camera.y); ctx.lineTo(l.ex-camera.x, l.ey-camera.y); ctx.stroke(); }); if(player.invincible % 4 < 2) { for (let i = 1; i <= 4; i++) { let pos = positionHistory[i * segmentDelay] || player; let dx = pos.x - camera.x; let dy = pos.y - camera.y; ctx.fillStyle = "#00E676"; ctx.beginPath(); ctx.arc(dx, dy, player.size - 2, 0, Math.PI * 2); ctx.fill(); ctx.save(); ctx.translate(dx, dy); if (i === 1 && weapons.laser.level > 0) { ctx.fillStyle = "#00E5FF"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill(); } if (i === 2 && player.regenLevel > 0) { ctx.fillStyle = "#FFF"; ctx.fillRect(-2, -7, 4, 14); ctx.fillRect(-7, -2, 14, 4); } if (i === 3 && player.vampLevel > 0) { ctx.fillStyle = "#FF1744"; ctx.beginPath(); ctx.moveTo(-7, -5); ctx.lineTo(7, -5); ctx.lineTo(0, 9); ctx.fill(); } ctx.restore(); } ctx.fillStyle = "#00B0FF"; ctx.beginPath(); ctx.arc(player.x - camera.x, player.y - camera.y, player.size, 0, Math.PI * 2); ctx.fill(); ctx.save(); ctx.translate(player.x-camera.x, player.y-camera.y); ctx.rotate(weapons.pistol.angle); ctx.fillStyle = "#999"; ctx.fillRect(-5, -5, 14, 10); ctx.fillStyle = "#666"; ctx.fillRect(9, -3, 10, 6); ctx.restore(); } damageTexts.forEach(dt => { ctx.fillStyle = dt.color; ctx.font = "bold 13px Arial"; ctx.fillText(dt.text, dt.x - camera.x, dt.y - camera.y); }); if (joystick.isActive) { ctx.strokeStyle = "rgba(0, 229, 255, 0.25)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(joystick.startX, joystick.startY, 35, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = "rgba(0, 229, 255, 0.5)"; ctx.beginPath(); ctx.arc(joystick.currentX, joystick.currentY, 12, 0, Math.PI * 2); ctx.fill(); } /* === PS5-style HUD === */
+            /* Left card: HP + EXP */
+            (function(){
+                const cx = 16, cy = 14, cw = 240, ch = 56, r = 10;
+                // Card background with subtle gradient
+                let grad = ctx.createLinearGradient(cx, cy, cx, cy + ch);
+                grad.addColorStop(0, "rgba(15, 35, 65, 0.85)");
+                grad.addColorStop(1, "rgba(6, 18, 38, 0.85)");
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(cx+r, cy); ctx.lineTo(cx+cw-r, cy); ctx.quadraticCurveTo(cx+cw, cy, cx+cw, cy+r);
+                ctx.lineTo(cx+cw, cy+ch-r); ctx.quadraticCurveTo(cx+cw, cy+ch, cx+cw-r, cy+ch);
+                ctx.lineTo(cx+r, cy+ch); ctx.quadraticCurveTo(cx, cy+ch, cx, cy+ch-r);
+                ctx.lineTo(cx, cy+r); ctx.quadraticCurveTo(cx, cy, cx+r, cy);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = "rgba(79, 195, 255, 0.25)"; ctx.lineWidth = 1; ctx.stroke();
+
+                // HP label
+                ctx.fillStyle = "#8fb9e0"; ctx.font = "600 9px Inter, sans-serif";
+                ctx.fillText("HP", cx + 12, cy + 16);
+                ctx.fillStyle = "#fff"; ctx.font = "700 11px Inter, sans-serif";
+                ctx.textAlign = "right";
+                ctx.fillText(`${Math.floor(player.hp)} / ${player.maxHp}`, cx + cw - 12, cy + 16);
+                ctx.textAlign = "left";
+
+                // HP bar background
+                const hpBarX = cx + 12, hpBarY = cy + 21, hpBarW = cw - 24, hpBarH = 8;
+                ctx.fillStyle = "rgba(255,255,255,0.08)";
+                ctx.beginPath(); ctx.roundRect(hpBarX, hpBarY, hpBarW, hpBarH, 4); ctx.fill();
+                // HP bar fill with gradient
+                let hpGrad = ctx.createLinearGradient(hpBarX, 0, hpBarX + hpBarW, 0);
+                hpGrad.addColorStop(0, "#ff1744"); hpGrad.addColorStop(1, "#ff5252");
+                ctx.fillStyle = hpGrad;
+                ctx.beginPath(); ctx.roundRect(hpBarX, hpBarY, hpBarW * (player.hp / player.maxHp), hpBarH, 4); ctx.fill();
+
+                // EXP label
+                ctx.fillStyle = "#8fb9e0"; ctx.font = "600 8px Inter, sans-serif";
+                ctx.fillText(`LV ${playerLevel}`, cx + 12, cy + 42);
+                ctx.fillStyle = "#c9e4ff"; ctx.font = "600 8px Inter, sans-serif";
+                ctx.textAlign = "right";
+                ctx.fillText(`${playerExp} / ${expNeeded}`, cx + cw - 12, cy + 42);
+                ctx.textAlign = "left";
+                // EXP bar
+                const expBarX = cx + 12, expBarY = cy + 46, expBarW = cw - 24, expBarH = 4;
+                ctx.fillStyle = "rgba(255,255,255,0.08)";
+                ctx.beginPath(); ctx.roundRect(expBarX, expBarY, expBarW, expBarH, 2); ctx.fill();
+                let expGrad = ctx.createLinearGradient(expBarX, 0, expBarX + expBarW, 0);
+                expGrad.addColorStop(0, "#0070d1"); expGrad.addColorStop(1, "#4fc3ff");
+                ctx.fillStyle = expGrad;
+                ctx.beginPath(); ctx.roundRect(expBarX, expBarY, expBarW * Math.min(1, playerExp / expNeeded), expBarH, 2); ctx.fill();
+            })();
+
+            /* Right card: Wave + Time */
+            (function(){
+                const cx = 624, cy = 14, cw = 160, ch = 56, r = 10;
+                let grad = ctx.createLinearGradient(cx, cy, cx, cy + ch);
+                grad.addColorStop(0, "rgba(15, 35, 65, 0.85)");
+                grad.addColorStop(1, "rgba(6, 18, 38, 0.85)");
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(cx+r, cy); ctx.lineTo(cx+cw-r, cy); ctx.quadraticCurveTo(cx+cw, cy, cx+cw, cy+r);
+                ctx.lineTo(cx+cw, cy+ch-r); ctx.quadraticCurveTo(cx+cw, cy+ch, cx+cw-r, cy+ch);
+                ctx.lineTo(cx+r, cy+ch); ctx.quadraticCurveTo(cx, cy+ch, cx, cy+ch-r);
+                ctx.lineTo(cx, cy+r); ctx.quadraticCurveTo(cx, cy, cx+r, cy);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = "rgba(79, 195, 255, 0.25)"; ctx.lineWidth = 1; ctx.stroke();
+
+                // Wave label
+                ctx.fillStyle = "#8fb9e0"; ctx.font = "600 9px Inter, sans-serif";
+                ctx.fillText("WAVE", cx + 12, cy + 16);
+                let waveText = currentWave === "BOSS" ? (bosses.length > 1 ? "TWINS" : "BOSS") : (bossWarning ? "ALERT" : `${currentWave}`);
+                let waveColor = (currentWave === "BOSS" || bossWarning) ? "#ff5252" : "#4fc3ff";
+                ctx.fillStyle = waveColor; ctx.font = "700 16px Inter, sans-serif";
+                ctx.textAlign = "right";
+                ctx.fillText(waveText, cx + cw - 12, cy + 22);
+                ctx.textAlign = "left";
+
+                // Time
+                ctx.fillStyle = "#8fb9e0"; ctx.font = "600 9px Inter, sans-serif";
+                ctx.fillText("TIME", cx + 12, cy + 42);
+                ctx.fillStyle = "#fff"; ctx.font = "700 13px Inter, sans-serif";
+                ctx.textAlign = "right";
+                ctx.fillText(`${Math.floor(gameTime / 60).toString().padStart(2,'0')}:${(gameTime % 60).toString().padStart(2,'0')}`, cx + cw - 12, cy + 47);
+                ctx.textAlign = "left";
+            })(); } }
+        let lastTime = performance.now(); let accumulator = 0; const timeStep = 1000 / 60; function gameLoop(timestamp) { requestAnimationFrame(gameLoop); let dt = timestamp - lastTime; lastTime = timestamp; if (dt > 250) dt = 250; accumulator += dt; while (accumulator >= timeStep) { update(); accumulator -= timeStep; } draw(); }
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
